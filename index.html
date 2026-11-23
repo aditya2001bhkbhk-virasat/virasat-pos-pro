@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIRASAT (विरासत) — Restaurant Management & POS Billing</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#112920">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js');
+        });
+      }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- jsPDF & AutoTable for PDF Summary Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans Devanagari', 'sans-serif'],
+                    },
+                    colors: {
+                        forest: {
+                            50: '#f2f7f4',
+                            100: '#e0ede5',
+                            200: '#c2dccd',
+                            600: '#2d6a4f',
+                            700: '#1B4332',
+                            800: '#143326',
+                            900: '#0d2219',
+                        },
+                        gold: {
+                            100: '#fbf6e6',
+                            200: '#f5e8c2',
+                            400: '#e2c35d',
+                            500: '#D4AF37',
+                            600: '#b59226',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-receipt, #printable-receipt * { visibility: visible; }
+            #printable-receipt {
+                position: fixed; left: 0; top: 0; width: 100%; max-width: 320px;
+                margin: 0 auto; padding: 12px; background: #fff; color: #000;
+            }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-forest-700 selection:text-white pb-20 md:pb-0">
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- ==================== 0. OFFLINE LOGIN / SIGNUP GATE ==================== -->
+    <div id="auth-screen" class="fixed inset-0 z-50 bg-forest-900 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-gold-500/30">
+            <div class="bg-forest-800 text-white px-6 py-6 text-center border-b border-forest-700">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 text-forest-900 font-extrabold text-2xl flex items-center justify-center shadow-md border border-gold-200 mb-3">
+                    वि
+                </div>
+                <h1 class="font-extrabold text-xl tracking-wide">VIRASAT <span class="text-gold-400">विरासत</span></h1>
+                <p class="text-xs text-forest-200 mt-1">Offline-Ready Restaurant POS & Cloud Sync</p>
+            </div>
+
+            <!-- Auth Mode Tabs -->
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl">
+                    <button type="button" id="auth-tab-login" onclick="switchAuthTab('login')" class="py-2 rounded-lg text-xs font-bold transition bg-white text-forest-800 shadow-xs">
+                        Login
+                    </button>
+                    <button type="button" id="auth-tab-signup" onclick="switchAuthTab('signup')" class="py-2 rounded-lg text-xs font-bold transition text-slate-500">
+                        Create Account
+                    </button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form" onsubmit="handleLogin(event)" class="space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Username</label>
+                        <input type="text" id="login-username" required autocomplete="username" placeholder="Enter your username" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                        <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <button type="submit" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
+                        <i class="ph ph-lock-key-open text-lg text-gold-400"></i> Sign In to POS
+                    </button>
+                </form>
+
+                <!-- Signup Form -->
+                <form id="signup-form" onsubmit="handleSignup(event)" class="hidden space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Choose Username</label>
+                        <input type="text" id="signup-username" required placeholder="e.g. aditya_virasat" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Dedicated Report Email</label>
+                        <input type="email" id="signup-email" required placeholder="reports@virasat.in" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                        <input type="password" id="signup-password" required minlength="4" placeholder="Create password (min 4 chars)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <button type="submit" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
+                        <i class="ph ph-user-plus text-lg text-gold-400"></i> Register & Launch POS
+                    </button>
+                </form>
+
+                <p class="text-[11px] text-center text-slate-400">
+                    Works 100% offline. Connect a free Cloud Sync URL inside Settings to sync across multiple devices.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP SHELL ==================== -->
+    <div id="app-shell" class="hidden">
+        <!-- Top Brand Header -->
+        <header class="bg-forest-800 text-white shadow-md sticky top-0 z-30 border-b border-forest-700">
+            <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 text-forest-900 font-bold text-xl flex items-center justify-center shadow-inner border border-gold-200">
+                        वि
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-lg tracking-wide text-white leading-none">VIRASAT <span class="text-gold-400 font-medium text-base">विरासत</span></h1>
+                            <span id="sync-badge" class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-forest-700 text-gold-400 rounded-full border border-gold-500/30">Local</span>
+                        </div>
+                        <p id="header-user-label" class="text-[11px] text-forest-200 mt-0.5">Ranchi, Jharkhand</p>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex items-center gap-1 bg-forest-900/60 p-1 rounded-xl border border-forest-700">
+                    <button onclick="switchTab('dashboard')" id="nav-desk-dashboard" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-forest-700 text-gold-400 shadow-sm">
+                        <i class="ph ph-squares-four text-base"></i> Dashboard
+                    </button>
+                    <button onclick="switchTab('tables')" id="nav-desk-tables" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-forest-100 hover:text-white">
+                        <i class="ph ph-armchair text-base"></i> Tables
+                    </button>
+                    <button onclick="switchTab('pos')" id="nav-desk-pos" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-forest-100 hover:text-white">
+                        <i class="ph ph-receipt text-base"></i> POS Bill
+                    </button>
+                    <button onclick="switchTab('menu')" id="nav-desk-menu" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-forest-100 hover:text-white">
+                        <i class="ph ph-fork-knife text-base"></i> Menu
+                    </button>
+                    <button onclick="switchTab('reports')" id="nav-desk-reports" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-forest-100 hover:text-white">
+                        <i class="ph ph-file-pdf text-base"></i> Summary & PDF
+                    </button>
+                    <button onclick="switchTab('settings')" id="nav-desk-settings" class="nav-btn-desk px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-forest-100 hover:text-white">
+                        <i class="ph ph-gear text-base"></i> Settings
+                    </button>
+                </nav>
+
+                <!-- Sync & Logout Actions -->
+                <div class="flex items-center gap-2">
+                    <button onclick="manualSyncNow()" title="Sync Across Devices" class="p-2 rounded-xl bg-forest-700 hover:bg-forest-600 text-gold-400 text-base transition">
+                        <i class="ph ph-arrows-clockwise"></i>
+                    </button>
+                    <button onclick="logoutUser()" title="Logout" class="px-2.5 py-1.5 rounded-xl bg-forest-900 hover:bg-red-600/80 text-forest-200 hover:text-white text-xs font-semibold transition flex items-center gap-1">
+                        <i class="ph ph-sign-out text-sm"></i> <span class="hidden sm:inline">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Container -->
+        <main class="max-w-7xl mx-auto px-4 py-5">
+
+            <!-- ==================== 1. DASHBOARD VIEW ==================== -->
+            <section id="view-dashboard" class="view-section space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Dashboard Overview</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Live summary for <span id="dash-username-badge" class="font-bold text-forest-700">User</span></p>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <button onclick="switchTab('reports')" class="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-forest-800 hover:bg-slate-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                            <i class="ph ph-file-pdf text-base text-red-600"></i> PDF Summary
+                        </button>
+                        <button onclick="startNewOrder()" class="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                            <i class="ph ph-plus-circle text-lg text-gold-400"></i> New Bill / Order
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dashboard Dedicated Report Email Quick Bar -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-forest-50 text-forest-700 flex items-center justify-center text-lg">
+                            <i class="ph ph-envelope-simple"></i>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dedicated Report Email</p>
+                            <p class="text-xs text-slate-600">PDF summaries are addressed to this email account</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <input type="email" id="dash-email-input" placeholder="owner@virasat.in" class="flex-1 sm:w-64 px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:border-forest-700">
+                        <button onclick="saveDashboardEmail()" class="px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs transition whitespace-nowrap">
+                            Update Email
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Today's Revenue</p>
+                            <h3 id="kpi-revenue" class="text-2xl font-extrabold text-slate-900 mt-1">₹0</h3>
+                            <p class="text-xs text-emerald-600 font-medium mt-1">Inclusive of GST</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-forest-50 text-forest-700 flex items-center justify-center text-xl font-bold">₹</div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Completed Bills</p>
+                            <h3 id="kpi-bills" class="text-2xl font-extrabold text-slate-900 mt-1">0</h3>
+                            <p id="kpi-avg" class="text-xs text-slate-500 mt-1">Avg. Order: ₹0</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl">
+                            <i class="ph ph-check-circle"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Active Tables & Cabins</p>
+                            <h3 id="kpi-active-tables" class="text-2xl font-extrabold text-slate-900 mt-1">0 / 11</h3>
+                            <p id="kpi-running-total" class="text-xs text-amber-600 font-medium mt-1">Running KOT: ₹0</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+                            <i class="ph ph-armchair"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Payment Split</p>
+                            <div class="flex items-center gap-2 mt-1.5 text-xs font-semibold">
+                                <span class="px-2 py-0.5 rounded bg-purple-50 text-purple-700">UPI: <span id="kpi-upi">₹0</span></span>
+                                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Cash: <span id="kpi-cash">₹0</span></span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">Card: <span id="kpi-card">₹0</span></p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl">
+                            <i class="ph ph-qr-code"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Orders & Recent Bills Split -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Running Tables & Cabins
+                            </h3>
+                            <button onclick="switchTab('tables')" class="text-xs font-semibold text-forest-700 hover:underline">Manage Floor →</button>
+                        </div>
+                        <div id="dash-running-list" class="p-5 space-y-3"></div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                <i class="ph ph-clock-counter-clockwise text-forest-700"></i> Recent Settled Bills
+                            </h3>
+                            <button onclick="switchTab('reports')" class="text-xs font-semibold text-forest-700 hover:underline">Summary & PDF →</button>
+                        </div>
+                        <div id="dash-recent-bills" class="p-5 space-y-3"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 2. TABLES & CABINS VIEW ==================== -->
+            <section id="view-tables" class="view-section hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Floor Plan: Private Cabins & Dining Hall</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Tap any cabin or table to open billing.</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs font-medium">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Available</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500"></span> Occupied</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-forest-700 mb-3">Private Cabins (3 Cabins)</h3>
+                    <div id="grid-cabins" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-forest-700 mb-3">Main Dining Hall (6 Tables)</h3>
+                    <div id="grid-hall" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-forest-700 mb-3">Takeaway & Parcel</h3>
+                    <div id="grid-takeaway" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                </div>
+            </section>
+
+            <!-- ==================== 3. POS BILLING VIEW ==================== -->
+            <section id="view-pos" class="view-section hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    <div class="lg:col-span-7 space-y-4">
+                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row gap-3">
+                            <div class="relative flex-1">
+                                <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="pos-search" oninput="renderPosMenu()" placeholder="Search Paneer, Biryani, Naan..." class="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:border-forest-700">
+                            </div>
+                            <select id="pos-table-select" onchange="changePosTable(this.value)" class="px-3.5 py-2 rounded-xl bg-forest-50 border border-forest-200 text-forest-900 font-semibold text-sm focus:outline-none"></select>
+                        </div>
+
+                        <div id="pos-categories" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
+                        <div id="pos-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[62vh] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <div class="lg:col-span-5">
+                        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full sticky top-20">
+                            <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-forest-900 text-white rounded-t-2xl">
+                                <div>
+                                    <span class="text-[10px] uppercase tracking-wider text-gold-400 font-semibold">Current Order</span>
+                                    <h3 id="cart-table-title" class="font-bold text-base">Cabin 1</h3>
+                                </div>
+                                <button onclick="clearCurrentCart()" class="px-2.5 py-1 rounded-lg bg-forest-800 hover:bg-red-600/80 text-xs text-forest-200 hover:text-white transition flex items-center gap-1">
+                                    <i class="ph ph-trash"></i> Clear
+                                </button>
+                            </div>
+
+                            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-100 grid grid-cols-2 gap-2">
+                                <input type="text" id="cart-cust-name" onchange="updateOrderCustomer()" placeholder="Guest Name" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs focus:outline-none focus:border-forest-700">
+                                <input type="tel" id="cart-cust-phone" onchange="updateOrderCustomer()" placeholder="Phone / WhatsApp" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs focus:outline-none focus:border-forest-700">
+                            </div>
+
+                            <div id="cart-items-list" class="p-4 flex-1 overflow-y-auto max-h-[36vh] space-y-2.5"></div>
+
+                            <div class="p-4 bg-slate-50 border-t border-slate-200/80 space-y-2 text-xs">
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Subtotal</span>
+                                    <span id="cart-subtotal" class="font-semibold">₹0.00</span>
+                                </div>
+                                <div class="flex items-center justify-between text-slate-600">
+                                    <span class="flex items-center gap-1">Discount (%)
+                                        <input type="number" id="cart-discount-pct" min="0" max="100" value="0" oninput="recalculateCart()" class="w-12 px-1.5 py-0.5 rounded border border-slate-300 bg-white text-center font-semibold text-slate-800">
+                                    </span>
+                                    <span id="cart-discount-amt" class="text-emerald-600 font-semibold">-₹0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span id="cart-gst-label">GST (5%)</span>
+                                    <span id="cart-gst-amt" class="font-semibold">₹0.00</span>
+                                </div>
+                                <div class="pt-2 border-t border-slate-200 flex justify-between items-center text-base font-extrabold text-slate-900">
+                                    <span>Grand Total</span>
+                                    <span id="cart-grand-total" class="text-forest-700 text-lg">₹0.00</span>
+                                </div>
+
+                                <div class="pt-3 grid grid-cols-2 gap-2.5">
+                                    <button onclick="saveKotToast()" class="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5">
+                                        <i class="ph ph-cooking-pot text-base"></i> Save KOT
+                                    </button>
+                                    <button onclick="openPaymentModal()" class="py-2.5 px-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5">
+                                        <i class="ph ph-currency-inr text-base text-gold-400"></i> Settle & Pay
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 4. MENU & INVENTORY VIEW ==================== -->
+            <section id="view-menu" class="view-section hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Menu & Stock Management</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Add new dishes, update prices, or toggle stock.</p>
+                    </div>
+                    <button onclick="openAddDishModal()" class="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2 self-start">
+                        <i class="ph ph-plus-circle text-lg text-gold-400"></i> Add New Dish
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                    <th class="py-3.5 px-4">Dish Name</th>
+                                    <th class="py-3.5 px-4">Category</th>
+                                    <th class="py-3.5 px-4">Type</th>
+                                    <th class="py-3.5 px-4">Price</th>
+                                    <th class="py-3.5 px-4">Stock</th>
+                                    <th class="py-3.5 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="menu-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 5. SUMMARY, PDF & EMAIL REPORTS VIEW ==================== -->
+            <section id="view-reports" class="view-section hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Period Summary & PDF Email Report</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Select a period below to summarize sales, download PDF, and send to your dedicated email.</p>
+                    </div>
+                    <!-- Period Toggle Pills -->
+                    <div class="inline-flex bg-slate-200/80 p-1 rounded-xl self-start">
+                        <button type="button" id="period-btn-day" onclick="setSummaryPeriod('day')" class="px-4 py-2 rounded-lg text-xs font-bold transition bg-forest-700 text-white shadow-xs">
+                            Whole Day Till Now
+                        </button>
+                        <button type="button" id="period-btn-month" onclick="setSummaryPeriod('month')" class="px-4 py-2 rounded-lg text-xs font-bold transition text-slate-700">
+                            Whole Month Till Now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary KPI Snapshot Box -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div>
+                            <span id="summary-period-badge" class="px-2.5 py-0.5 rounded-full bg-forest-50 text-forest-800 text-[11px] font-bold">Whole Day Till Now</span>
+                            <h3 id="summary-period-range" class="text-sm font-bold text-slate-800 mt-1">Today's Live Summary</h3>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <button onclick="downloadSummaryPdf()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5">
+                                <i class="ph ph-file-pdf text-base text-red-400"></i> Download PDF
+                            </button>
+                            <button onclick="sendSummaryPdfToEmail()" class="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5">
+                                <i class="ph ph-paper-plane-tilt text-base text-gold-400"></i> Send PDF to Email
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <p class="text-[10px] font-bold uppercase text-slate-400">Total Bills</p>
+                            <p id="sum-bills-count" class="text-xl font-extrabold text-slate-900 mt-0.5">0</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-forest-50 border border-forest-100">
+                            <p class="text-[10px] font-bold uppercase text-forest-700">Gross Revenue</p>
+                            <p id="sum-gross-rev" class="text-xl font-extrabold text-forest-900 mt-0.5">₹0</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-purple-50 border border-purple-100">
+                            <p class="text-[10px] font-bold uppercase text-purple-700">UPI Total</p>
+                            <p id="sum-upi-rev" class="text-lg font-extrabold text-purple-900 mt-0.5">₹0</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                            <p class="text-[10px] font-bold uppercase text-emerald-700">Cash Total</p>
+                            <p id="sum-cash-rev" class="text-lg font-extrabold text-emerald-900 mt-0.5">₹0</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-100">
+                            <p class="text-[10px] font-bold uppercase text-amber-700">GST Collected</p>
+                            <p id="sum-gst-rev" class="text-lg font-extrabold text-amber-900 mt-0.5">₹0</p>
+                        </div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-500">
+                        Target Email: <span id="summary-target-email" class="font-bold text-forest-800">Not set</span> (Downloads the `.pdf` report and opens your email draft addressed to your dedicated email).
+                    </p>
+                </div>
+
+                <!-- Filtered Bills Ledger -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                    <th class="py-3.5 px-4">Invoice #</th>
+                                    <th class="py-3.5 px-4">Date & Time</th>
+                                    <th class="py-3.5 px-4">Table / Guest</th>
+                                    <th class="py-3.5 px-4">Payment</th>
+                                    <th class="py-3.5 px-4">Total</th>
+                                    <th class="py-3.5 px-4 text-right">Receipt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sales-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 6. SETTINGS & MULTI-DEVICE SYNC VIEW ==================== -->
+            <section id="view-settings" class="view-section hidden max-w-2xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Restaurant, Email & Cloud Sync Settings</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Configure your store details, dedicated email account, and cross-device sync.</p>
+                </div>
+
+                <form onsubmit="saveSettings(event)" class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Restaurant Name</label>
+                            <input type="text" id="set-name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Dedicated Report Email Account</label>
+                            <input type="email" id="set-email" required placeholder="reports@virasat.in" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Address (Printed on Receipt & PDF)</label>
+                        <input type="text" id="set-address" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                            <input type="text" id="set-phone" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">GSTIN (Optional)</label>
+                            <input type="text" id="set-gstin" placeholder="20AAAAA0000A1Z5" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Merchant UPI ID (For Live QR)</label>
+                            <input type="text" id="set-upi" required placeholder="virasat.ranchi@okicici" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">GST Percentage (%)</label>
+                            <input type="number" id="set-gst-rate" min="0" max="28" step="0.5" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        </div>
+                    </div>
+
+                    <!-- Cross-Device Cloud Sync Endpoint -->
+                    <div class="pt-3 border-t border-slate-200 space-y-2">
+                        <label class="block text-xs font-bold text-forest-800 flex items-center gap-1.5">
+                            <i class="ph ph-cloud-arrow-up text-base"></i> Multi-Device Cloud Sync URL (Optional)
+                        </label>
+                        <input type="url" id="set-sync-url" placeholder="https://your-project-default-rtdb.firebaseio.com" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-forest-700">
+                        <p class="text-[11px] text-slate-500">
+                            Paste a free Firebase Realtime Database URL so logging into the same username/password on any device automatically mirrors your entire POS database in real time.
+                        </p>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-between gap-3">
+                        <button type="button" onclick="resetDemoData()" class="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition">
+                            Reset Default Menu
+                        </button>
+                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm shadow-sm transition">
+                            Save Settings & Sync
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+        </main>
+
+        <!-- Mobile Bottom Navigation Bar -->
+        <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 flex items-center justify-around py-2 px-1 shadow-lg">
+            <button onclick="switchTab('dashboard')" id="nav-mob-dashboard" class="nav-btn-mob flex flex-col items-center gap-0.5 text-forest-700 font-bold text-[10px] px-2 py-1">
+                <i class="ph ph-squares-four text-xl"></i> Home
+            </button>
+            <button onclick="switchTab('tables')" id="nav-mob-tables" class="nav-btn-mob flex flex-col items-center gap-0.5 text-slate-500 font-medium text-[10px] px-2 py-1">
+                <i class="ph ph-armchair text-xl"></i> Tables
+            </button>
+            <button onclick="switchTab('pos')" id="nav-mob-pos" class="nav-btn-mob flex flex-col items-center gap-0.5 text-slate-500 font-medium text-[10px] px-2 py-1">
+                <i class="ph ph-receipt text-xl"></i> POS Bill
+            </button>
+            <button onclick="switchTab('reports')" id="nav-mob-reports" class="nav-btn-mob flex flex-col items-center gap-0.5 text-slate-500 font-medium text-[10px] px-2 py-1">
+                <i class="ph ph-file-pdf text-xl"></i> PDF Report
+            </button>
+            <button onclick="switchTab('settings')" id="nav-mob-settings" class="nav-btn-mob flex flex-col items-center gap-0.5 text-slate-500 font-medium text-[10px] px-2 py-1">
+                <i class="ph ph-gear text-xl"></i> Settings
+            </button>
+        </nav>
+    </div>
+
+    <!-- ==================== MODAL: PAYMENT ACCEPTANCE ==================== -->
+    <div id="payment-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-forest-900 text-white px-5 py-4 flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] uppercase tracking-wider text-gold-400 font-semibold">Settle Bill</span>
+                    <h3 id="pay-modal-table" class="font-bold text-base">Cabin 1</h3>
+                </div>
+                <button onclick="closePaymentModal()" class="text-forest-200 hover:text-white text-xl"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-forest-50 border border-forest-100 rounded-xl p-3.5 text-center">
+                    <p class="text-xs text-forest-700 font-medium">Total Payable Amount</p>
+                    <p id="pay-modal-amount" class="text-3xl font-extrabold text-forest-900 mt-0.5">₹0.00</p>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl">
+                    <button type="button" id="tab-pay-UPI" onclick="selectPaymentMode('UPI')" class="py-2 rounded-lg text-xs font-bold transition bg-white text-forest-700 shadow-sm">UPI QR</button>
+                    <button type="button" id="tab-pay-Cash" onclick="selectPaymentMode('Cash')" class="py-2 rounded-lg text-xs font-bold transition text-slate-600">Cash</button>
+                    <button type="button" id="tab-pay-Card" onclick="selectPaymentMode('Card')" class="py-2 rounded-lg text-xs font-bold transition text-slate-600">Card</button>
+                </div>
+                <div id="panel-pay-UPI" class="space-y-3 text-center">
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 inline-block mx-auto">
+                        <div id="upi-qr-container" class="flex items-center justify-center"></div>
+                    </div>
+                    <button onclick="completePayment('UPI')" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm">Confirm UPI Received & Print</button>
+                </div>
+                <div id="panel-pay-Cash" class="hidden space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Cash Tendered (₹)</label>
+                        <input type="number" id="cash-tendered-input" oninput="calculateCashChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-base font-bold">
+                    </div>
+                    <div class="flex justify-between items-center p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold">
+                        <span>Change to Return:</span>
+                        <span id="cash-change-display" class="text-base text-amber-700">₹0.00</span>
+                    </div>
+                    <button onclick="completePayment('Cash')" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm">Confirm Cash Received & Print</button>
+                </div>
+                <div id="panel-pay-Card" class="hidden space-y-3">
+                    <input type="text" id="card-ref-input" placeholder="Last 4 digits (optional)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm">
+                    <button onclick="completePayment('Card')" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm">Confirm Card Swipe & Print</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: THERMAL RECEIPT ==================== -->
+    <div id="receipt-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center justify-between no-print">
+                <span class="text-xs font-bold text-slate-700">Tax Invoice Preview</span>
+                <button onclick="closeReceiptModal()" class="text-slate-500 hover:text-slate-800 text-lg"><i class="ph ph-x"></i></button>
+            </div>
+            <div id="printable-receipt" class="p-5 overflow-y-auto font-mono text-xs text-slate-900 space-y-3">
+                <div class="text-center border-b border-dashed border-slate-400 pb-3">
+                    <h2 id="rec-rest-name" class="text-base font-extrabold">VIRASAT (विरासत)</h2>
+                    <p id="rec-rest-address" class="text-[11px] text-slate-600 mt-0.5">Ranchi, Jharkhand</p>
+                    <p id="rec-rest-phone" class="text-[11px] text-slate-600"></p>
+                    <p id="rec-rest-gstin" class="text-[11px] font-semibold mt-0.5"></p>
+                </div>
+                <div class="flex justify-between text-[11px] border-b border-dashed border-slate-400 pb-2">
+                    <div>
+                        <p>Bill: <span id="rec-inv-no" class="font-bold"></span></p>
+                        <p>Table: <span id="rec-table" class="font-bold"></span></p>
+                    </div>
+                    <div class="text-right">
+                        <p id="rec-date"></p>
+                        <p>Mode: <span id="rec-pay-mode" class="font-bold"></span></p>
+                    </div>
+                </div>
+                <div id="rec-guest-row" class="hidden text-[11px] border-b border-dashed border-slate-400 pb-2">
+                    Guest: <span id="rec-guest-name" class="font-bold"></span>
+                </div>
+                <table class="w-full text-[11px]">
+                    <thead>
+                        <tr class="border-b border-slate-300 text-left">
+                            <th class="py-1">Item</th>
+                            <th class="py-1 text-center">Qty</th>
+                            <th class="py-1 text-right">Amt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rec-items-body" class="divide-y divide-dotted divide-slate-200"></tbody>
+                </table>
+                <div class="border-t border-dashed border-slate-400 pt-2 space-y-1 text-[11px]">
+                    <div class="flex justify-between"><span>Subtotal</span><span id="rec-subtotal"></span></div>
+                    <div id="rec-disc-row" class="hidden flex justify-between"><span>Discount</span><span id="rec-discount"></span></div>
+                    <div class="flex justify-between"><span id="rec-gst-label">GST</span><span id="rec-gst"></span></div>
+                    <div class="flex justify-between text-sm font-extrabold border-t border-slate-400 pt-1.5 mt-1">
+                        <span>GRAND TOTAL</span><span id="rec-total"></span>
+                    </div>
+                </div>
+                <div class="text-center border-t border-dashed border-slate-400 pt-3 text-[10px] text-slate-600">
+                    <p class="font-bold">Thank you for dining at VIRASAT!</p>
+                </div>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-200 grid grid-cols-2 gap-2 no-print">
+                <button onclick="window.print()" class="py-2.5 px-3 rounded-xl bg-forest-700 text-white font-bold text-xs">Print Receipt</button>
+                <button onclick="closeReceiptModal()" class="py-2.5 px-3 rounded-xl bg-slate-200 text-slate-800 font-bold text-xs">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: ADD NEW DISH ==================== -->
+    <div id="add-dish-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-forest-900 text-white px-5 py-4 flex items-center justify-between">
+                <h3 class="font-bold text-base">Add New Menu Item</h3>
+                <button onclick="closeAddDishModal()" class="text-forest-200 hover:text-white text-xl"><i class="ph ph-x"></i></button>
+            </div>
+            <form onsubmit="saveNewDish(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Dish Name</label>
+                    <input type="text" id="dish-name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                        <select id="dish-category" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                            <option value="Starters">Starters</option>
+                            <option value="Main Course">Main Course</option>
+                            <option value="Breads & Rice">Breads & Rice</option>
+                            <option value="Beverages">Beverages</option>
+                            <option value="Desserts">Desserts</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Type</label>
+                        <select id="dish-veg" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                            <option value="true">Pure Veg</option>
+                            <option value="false">Non-Veg</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Price (₹)</label>
+                        <input type="number" id="dish-price" min="1" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Stock</label>
+                        <input type="number" id="dish-stock" min="0" value="50" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                    </div>
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeAddDishModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-forest-700 text-white text-xs font-bold">Add Dish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
+    <script>
+        const USERS_REGISTRY_KEY = 'virasat_pro_users_v1';
+        const ACTIVE_SESSION_KEY = 'virasat_pro_session_v1';
+        const DEFAULT_CLOUD_SYNC_URL = '';
+
+        const DEFAULT_TABLES = [
+            { id: 'cabin-1', name: 'Cabin 1 (Royal)', type: 'cabin', capacity: 4 },
+            { id: 'cabin-2', name: 'Cabin 2 (Family)', type: 'cabin', capacity: 6 },
+            { id: 'cabin-3', name: 'Cabin 3 (Couple)', type: 'cabin', capacity: 2 },
+            { id: 'table-1', name: 'Table 1', type: 'hall', capacity: 4 },
+            { id: 'table-2', name: 'Table 2', type: 'hall', capacity: 4 },
+            { id: 'table-3', name: 'Table 3', type: 'hall', capacity: 2 },
+            { id: 'table-4', name: 'Table 4', type: 'hall', capacity: 4 },
+            { id: 'table-5', name: 'Table 5', type: 'hall', capacity: 6 },
+            { id: 'table-6', name: 'Table 6', type: 'hall', capacity: 4 },
+            { id: 'takeaway-1', name: 'Takeaway Counter 1', type: 'takeaway', capacity: 1 },
+            { id: 'takeaway-2', name: 'Online / Parcel', type: 'takeaway', capacity: 1 }
+        ];
+
+        const DEFAULT_MENU = [
+            { id: 'm1', name: 'Paneer Tikka Angara', category: 'Starters', price: 240, veg: true, stock: 40 },
+            { id: 'm2', name: 'Crispy Chilli Baby Corn', category: 'Starters', price: 190, veg: true, stock: 35 },
+            { id: 'm3', name: 'Tandoori Chicken (Half)', category: 'Starters', price: 280, veg: false, stock: 25 },
+            { id: 'm5', name: 'Virasat Shahi Paneer', category: 'Main Course', price: 270, veg: true, stock: 50 },
+            { id: 'm6', name: 'Dal Makhani Heritage', category: 'Main Course', price: 210, veg: true, stock: 60 },
+            { id: 'm8', name: 'Ranchi Handi Chicken', category: 'Main Course', price: 340, veg: false, stock: 30 },
+            { id: 'm10', name: 'Butter Naan', category: 'Breads & Rice', price: 45, veg: true, stock: 120 },
+            { id: 'm13', name: 'Subz Dum Biryani', category: 'Breads & Rice', price: 220, veg: true, stock: 40 },
+            { id: 'm14', name: 'Chicken Dum Biryani', category: 'Breads & Rice', price: 280, veg: false, stock: 45 },
+            { id: 'm15', name: 'Virgin Mint Mojito', category: 'Beverages', price: 110, veg: true, stock: 80 },
+            { id: 'm17', name: 'Hot Gulab Jamun (2 Pcs)', category: 'Desserts', price: 80, veg: true, stock: 60 }
+        ];
+
+        const DEFAULT_SETTINGS = {
+            name: 'VIRASAT (विरासत)',
+            email: '',
+            address: 'Main Road, Ranchi, Jharkhand',
+            phone: '+91 98765 43210',
+            gstin: '',
+            upiId: 'virasat.ranchi@okicici',
+            gstRate: 5,
+            syncUrl: DEFAULT_CLOUD_SYNC_URL
+        };
+
+        let currentUser = null; // { username, passHash }
+        let state = {
+            tables: DEFAULT_TABLES,
+            menu: DEFAULT_MENU,
+            activeOrders: {},
+            completedBills: [],
+            invoiceCounter: 1001,
+            settings: { ...DEFAULT_SETTINGS },
+            updatedAt: 0
+        };
+
+        let currentPosTableId = 'cabin-1';
+        let currentCategoryFilter = 'All';
+        let currentGrandTotal = 0;
+        let currentSummaryPeriod = 'day'; // 'day' | 'month'
+
+        // ==================== OFFLINE PASSWORD HASHING & AUTH ====================
+        async function hashString(text) {
+            if (window.crypto && window.crypto.subtle) {
+                const msgUint8 = new TextEncoder().encode(text);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+                return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            // Deterministic fallback hash if subtle crypto unavailable
+            let h = 2166136261;
+            for (let i = 0; i < text.length; i++) {
+                h ^= text.charCodeAt(i);
+                h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+            }
+            return (h >>> 0).toString(16);
+        }
+
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            const tabLogin = document.getElementById('auth-tab-login');
+            const tabSignup = document.getElementById('auth-tab-signup');
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                tabLogin.classList.add('bg-white', 'text-forest-800', 'shadow-xs');
+                tabLogin.classList.remove('text-slate-500');
+                tabSignup.classList.remove('bg-white', 'text-forest-800', 'shadow-xs');
+                tabSignup.classList.add('text-slate-500');
+            } else {
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+                tabSignup.classList.add('bg-white', 'text-forest-800', 'shadow-xs');
+                tabSignup.classList.remove('text-slate-500');
+                tabLogin.classList.remove('bg-white', 'text-forest-800', 'shadow-xs');
+                tabLogin.classList.add('text-slate-500');
+            }
+        }
+
+        function getUsersRegistry() {
+            try {
+                return JSON.parse(localStorage.getItem(USERS_REGISTRY_KEY) || '{}');
+            } catch {
+                return {};
+            }
+        }
+
+        function saveUsersRegistry(reg) {
+            localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(reg));
+        }
+
+        function getAccountStorageKey(username) {
+            return `virasat_pro_data_${username.toLowerCase().trim()}`;
+        }
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            const username = document.getElementById('signup-username').value.trim().toLowerCase();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+
+            if (!username || !password) return;
+
+            const registry = getUsersRegistry();
+            if (registry[username]) {
+                showToast('Username already exists on this device. Please Login.', 'warning');
+                switchAuthTab('login');
+                document.getElementById('login-username').value = username;
+                return;
+            }
+
+            const passHash = await hashString(`${username}:${password}`);
+            registry[username] = { username, passHash, email, createdAt: Date.now() };
+            saveUsersRegistry(registry);
+
+            // Initialize fresh state for this account
+            state = {
+                tables: JSON.parse(JSON.stringify(DEFAULT_TABLES)),
+                menu: JSON.parse(JSON.stringify(DEFAULT_MENU)),
+                activeOrders: {},
+                completedBills: [],
+                invoiceCounter: 1001,
+                settings: { ...DEFAULT_SETTINGS, email },
+                updatedAt: Date.now()
+            };
+
+            currentUser = { username, passHash };
+            localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(currentUser));
+            localStorage.setItem(getAccountStorageKey(username), JSON.stringify(state));
+
+            enterAppShell();
+            showToast(`Account @${username} created!`);
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+            if (!username || !password) return;
+
+            const passHash = await hashString(`${username}:${password}`);
+            const registry = getUsersRegistry();
+            const savedUser = registry[username];
+
+            if (savedUser && savedUser.passHash !== passHash) {
+                showToast('Incorrect password for this account.', 'warning');
+                return;
+            }
+
+            // If logging in on a brand-new device, allow creating local session & pulling from cloud if configured
+            if (!savedUser) {
+                registry[username] = { username, passHash, email: '', createdAt: Date.now() };
+                saveUsersRegistry(registry);
+            }
+
+            currentUser = { username, passHash };
+            localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(currentUser));
+
+            loadAccountState();
+            enterAppShell();
+            await pullFromCloudIfConfigured(true);
+            showToast(`Welcome back, @${username}!`);
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem(ACTIVE_SESSION_KEY);
+            document.getElementById('app-shell').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            showToast('Logged out securely');
+        }
+
+        function enterAppShell() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-shell').classList.remove('hidden');
+            document.getElementById('header-user-label').textContent = `@${currentUser.username} • ${state.settings.address}`;
+            document.getElementById('dash-username-badge').textContent = `@${currentUser.username}`;
+            switchTab('dashboard');
+        }
+
+        // ==================== ACCOUNT STORAGE & CROSS-DEVICE SYNC ====================
+        function loadAccountState() {
+            if (!currentUser) return;
+            try {
+                const raw = localStorage.getItem(getAccountStorageKey(currentUser.username));
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state = {
+                        ...state,
+                        ...parsed,
+                        settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) }
+                    };
+                } else {
+                    state = {
+                        tables: JSON.parse(JSON.stringify(DEFAULT_TABLES)),
+                        menu: JSON.parse(JSON.stringify(DEFAULT_MENU)),
+                        activeOrders: {},
+                        completedBills: [],
+                        invoiceCounter: 1001,
+                        settings: { ...DEFAULT_SETTINGS },
+                        updatedAt: Date.now()
+                    };
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function saveState(skipCloud = false) {
+            if (!currentUser) return;
+            state.updatedAt = Date.now();
+            localStorage.setItem(getAccountStorageKey(currentUser.username), JSON.stringify(state));
+            if (!skipCloud) {
+                pushToCloudIfConfigured();
+            }
+        }
+
+        function getCloudEndpoint() {
+            const base = (state.settings.syncUrl || '').trim().replace(/\/+$/, '');
+            if (!base || !currentUser) return null;
+            // Keyed by username + password hash so same credentials share exact data across devices
+            const vaultKey = `${currentUser.username}_${currentUser.passHash.slice(0, 16)}`;
+            return `${base}/virasat_vaults/${vaultKey}.json`;
+        }
+
+        async function pushToCloudIfConfigured() {
+            const url = getCloudEndpoint();
+            const badge = document.getElementById('sync-badge');
+            if (!url || !navigator.onLine) {
+                if (badge) badge.textContent = navigator.onLine ? 'Local' : 'Offline';
+                return;
+            }
+            try {
+                if (badge) badge.textContent = 'Syncing...';
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(state)
+                });
+                if (badge) badge.textContent = 'Cloud Synced';
+            } catch {
+                if (badge) badge.textContent = 'Offline';
+            }
+        }
+
+        async function pullFromCloudIfConfigured(silent = false) {
+            const url = getCloudEndpoint();
+            const badge = document.getElementById('sync-badge');
+            if (!url || !navigator.onLine) return;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const remote = await res.json();
+                if (remote && remote.updatedAt && remote.updatedAt > (state.updatedAt || 0)) {
+                    state = {
+                        ...state,
+                        ...remote,
+                        settings: { ...DEFAULT_SETTINGS, ...(remote.settings || {}) }
+                    };
+                    localStorage.setItem(getAccountStorageKey(currentUser.username), JSON.stringify(state));
+                    renderDashboard();
+                    if (!silent) showToast('Synced latest data from cloud!');
+                } else if (!remote && state.completedBills.length > 0) {
+                    await pushToCloudIfConfigured();
+                }
+                if (badge) badge.textContent = 'Cloud Synced';
+            } catch {
+                if (badge) badge.textContent = 'Offline';
+            }
+        }
+
+        async function manualSyncNow() {
+            if (!state.settings.syncUrl) {
+                showToast('Add a Cloud Sync URL in Settings to sync across devices.', 'warning');
+                switchTab('settings');
+                return;
+            }
+            await pullFromCloudIfConfigured(false);
+            await pushToCloudIfConfigured();
+        }
+
+        // ==================== UTILITIES ====================
+        function formatINR(amount) {
+            return '₹' + Number(amount || 0).toLocaleString('en-IN', {
+                minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = type === 'warning'
+                ? 'bg-amber-600 text-white'
+                : 'bg-forest-800 text-white border border-gold-500/40';
+            toast.className = `${colors} px-4 py-2.5 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 transition-all duration-300`;
+            toast.innerHTML = `<i class="ph ${type === 'warning' ? 'ph-warning-circle' : 'ph-check-circle'} text-base text-gold-400"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2600);
+        }
+
+        // ==================== NAVIGATION & TABS ====================
+        function switchTab(tabName) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+            const target = document.getElementById(`view-${tabName}`);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn-desk').forEach(btn => {
+                btn.classList.remove('bg-forest-700', 'text-gold-400', 'shadow-sm');
+                btn.classList.add('text-forest-100');
+            });
+            const activeDesk = document.getElementById(`nav-desk-${tabName}`);
+            if (activeDesk) {
+                activeDesk.classList.add('bg-forest-700', 'text-gold-400', 'shadow-sm');
+                activeDesk.classList.remove('text-forest-100');
+            }
+
+            document.querySelectorAll('.nav-btn-mob').forEach(btn => {
+                btn.classList.remove('text-forest-700', 'font-bold');
+                btn.classList.add('text-slate-500', 'font-medium');
+            });
+            const activeMob = document.getElementById(`nav-mob-${tabName}`);
+            if (activeMob) {
+                activeMob.classList.add('text-forest-700', 'font-bold');
+                activeMob.classList.remove('text-slate-500', 'font-medium');
+            }
+
+            if (tabName === 'dashboard') renderDashboard();
+            if (tabName === 'tables') renderTables();
+            if (tabName === 'pos') renderPosView();
+            if (tabName === 'menu') renderMenuManagement();
+            if (tabName === 'reports') renderPeriodSummaryView();
+            if (tabName === 'settings') loadSettingsForm();
+        }
+
+        function startNewOrder() {
+            const freeTable = state.tables.find(t => !state.activeOrders[t.id] || state.activeOrders[t.id].items.length === 0);
+            currentPosTableId = freeTable ? freeTable.id : state.tables[0].id;
+            switchTab('pos');
+        }
+
+        // ==================== 1. DASHBOARD ====================
+        function saveDashboardEmail() {
+            const emailVal = document.getElementById('dash-email-input').value.trim();
+            state.settings.email = emailVal;
+            saveState();
+            showToast('Dedicated report email updated!');
+        }
+
+        function renderDashboard() {
+            document.getElementById('dash-email-input').value = state.settings.email || '';
+
+            const todayStr = new Date().toDateString();
+            const todaysBills = state.completedBills.filter(b => new Date(b.timestamp).toDateString() === todayStr);
+
+            let rev = 0, upi = 0, cash = 0, card = 0;
+            todaysBills.forEach(b => {
+                rev += b.total;
+                if (b.paymentMode === 'UPI') upi += b.total;
+                else if (b.paymentMode === 'Cash') cash += b.total;
+                else card += b.total;
+            });
+
+            document.getElementById('kpi-revenue').textContent = formatINR(rev);
+            document.getElementById('kpi-bills').textContent = todaysBills.length;
+            document.getElementById('kpi-avg').textContent = `Avg. Order: ${formatINR(todaysBills.length ? rev / todaysBills.length : 0)}`;
+            document.getElementById('kpi-upi').textContent = formatINR(upi);
+            document.getElementById('kpi-cash').textContent = formatINR(cash);
+            document.getElementById('kpi-card').textContent = formatINR(card);
+
+            const activeIds = Object.keys(state.activeOrders).filter(id => state.activeOrders[id]?.items?.length > 0);
+            let runningSum = 0;
+            activeIds.forEach(id => {
+                const sub = state.activeOrders[id].items.reduce((acc, it) => acc + it.price * it.qty, 0);
+                runningSum += sub * (1 + state.settings.gstRate / 100);
+            });
+
+            document.getElementById('kpi-active-tables').textContent = `${activeIds.length} / ${state.tables.length}`;
+            document.getElementById('kpi-running-total').textContent = `Running KOT: ${formatINR(runningSum)}`;
+
+            const runContainer = document.getElementById('dash-running-list');
+            runContainer.innerHTML = activeIds.length === 0
+                ? `<p class="text-sm text-slate-400 text-center py-6">No active tables right now.</p>`
+                : activeIds.map(id => {
+                    const tbl = state.tables.find(t => t.id === id);
+                    const ord = state.activeOrders[id];
+                    const itemCount = ord.items.reduce((s, i) => s + i.qty, 0);
+                    const sub = ord.items.reduce((s, i) => s + i.price * i.qty, 0);
+                    return `
+                        <div onclick="openTablePos('${id}')" class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 cursor-pointer flex items-center justify-between">
+                            <div>
+                                <p class="font-bold text-sm text-slate-900">${tbl ? tbl.name : id}</p>
+                                <p class="text-xs text-slate-600">${itemCount} items • ${ord.customerName || 'Walk-in'}</p>
+                            </div>
+                            <p class="font-extrabold text-sm text-forest-800">${formatINR(sub)}</p>
+                        </div>
+                    `;
+                }).join('');
+
+            const recentContainer = document.getElementById('dash-recent-bills');
+            const recent = [...state.completedBills].reverse().slice(0, 5);
+            recentContainer.innerHTML = recent.length === 0
+                ? `<p class="text-sm text-slate-400 text-center py-6">No settled bills yet.</p>`
+                : recent.map(b => `
+                    <div onclick="viewReceipt('${b.invoiceNo}')" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-sm text-slate-900">${b.invoiceNo} • ${b.tableName}</p>
+                            <p class="text-xs text-slate-500">${new Date(b.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} • ${b.paymentMode}</p>
+                        </div>
+                        <p class="font-extrabold text-sm text-emerald-700">${formatINR(b.total)}</p>
+                    </div>
+                `).join('');
+        }
+
+        // ==================== 2. TABLES ====================
+        function renderTables() {
+            const renderCard = (t) => {
+                const ord = state.activeOrders[t.id];
+                const isOccupied = ord && ord.items && ord.items.length > 0;
+                const sub = isOccupied ? ord.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;
+                const count = isOccupied ? ord.items.reduce((s, i) => s + i.qty, 0) : 0;
+                return `
+                    <div onclick="openTablePos('${t.id}')" class="p-4 rounded-2xl border-2 cursor-pointer transition ${
+                        isOccupied ? 'bg-amber-50 border-amber-400' : 'bg-white border-slate-200 hover:border-forest-600'
+                    }">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                isOccupied ? 'bg-amber-200 text-amber-900' : 'bg-emerald-100 text-emerald-800'
+                            }">${isOccupied ? 'Occupied' : 'Available'}</span>
+                            <span class="text-xs text-slate-400">${t.capacity} Pax</span>
+                        </div>
+                        <h4 class="font-bold text-slate-900 text-sm">${t.name}</h4>
+                        <p class="text-xs mt-1 ${isOccupied ? 'font-bold text-forest-800' : 'text-slate-400'}">
+                            ${isOccupied ? `${count} items • ${formatINR(sub)}` : 'Tap to start order'}
+                        </p>
+                    </div>
+                `;
+            };
+            document.getElementById('grid-cabins').innerHTML = state.tables.filter(t => t.type === 'cabin').map(renderCard).join('');
+            document.getElementById('grid-hall').innerHTML = state.tables.filter(t => t.type === 'hall').map(renderCard).join('');
+            document.getElementById('grid-takeaway').innerHTML = state.tables.filter(t => t.type === 'takeaway').map(renderCard).join('');
+        }
+
+        function openTablePos(tableId) {
+            currentPosTableId = tableId;
+            switchTab('pos');
+        }
+
+        // ==================== 3. POS BILLING ====================
+        function ensureActiveOrder(tableId) {
+            if (!state.activeOrders[tableId]) {
+                state.activeOrders[tableId] = { items: [], discountPct: 0, customerName: '', customerPhone: '' };
+            }
+            return state.activeOrders[tableId];
+        }
+
+        function renderPosView() {
+            const select = document.getElementById('pos-table-select');
+            select.innerHTML = state.tables.map(t => {
+                const hasItems = state.activeOrders[t.id]?.items?.length > 0;
+                return `<option value="${t.id}" ${t.id === currentPosTableId ? 'selected' : ''}>${t.name}${hasItems ? ' (Active)' : ''}</option>`;
+            }).join('');
+
+            const categories = ['All', ...new Set(state.menu.map(m => m.category))];
+            document.getElementById('pos-categories').innerHTML = categories.map(cat => `
+                <button onclick="setPosCategory('${cat}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${
+                    currentCategoryFilter === cat ? 'bg-forest-700 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                }">${cat}</button>
+            `).join('');
+
+            renderPosMenu();
+            renderCart();
+        }
+
+        function setPosCategory(cat) {
+            currentCategoryFilter = cat;
+            renderPosView();
+        }
+
+        function changePosTable(tableId) {
+            currentPosTableId = tableId;
+            renderCart();
+        }
+
+        function renderPosMenu() {
+            const query = (document.getElementById('pos-search').value || '').toLowerCase().trim();
+            const filtered = state.menu.filter(item => {
+                const matchCat = currentCategoryFilter === 'All' || item.category === currentCategoryFilter;
+                const matchSearch = item.name.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
+                return matchCat && matchSearch;
+            });
+
+            document.getElementById('pos-menu-grid').innerHTML = filtered.map(item => {
+                const outOfStock = item.stock <= 0;
+                return `
+                    <div onclick="${outOfStock ? '' : `addToCart('${item.id}')`}" class="p-3.5 rounded-2xl bg-white border border-slate-200/80 flex flex-col justify-between ${
+                        outOfStock ? 'opacity-50 cursor-not-allowed' : 'hover:border-forest-600 cursor-pointer'
+                    }">
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="w-3 h-3 rounded-full ${item.veg ? 'bg-emerald-600' : 'bg-red-600'}"></span>
+                                <span class="text-[10px] text-slate-400">Stock: ${item.stock}</span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-xs leading-snug">${item.name}</h4>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <span class="font-extrabold text-forest-800 text-sm">${formatINR(item.price)}</span>
+                            <span class="w-6 h-6 rounded-lg bg-forest-50 text-forest-700 flex items-center justify-center font-bold text-sm">+</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addToCart(menuId) {
+            const dish = state.menu.find(m => m.id === menuId);
+            if (!dish || dish.stock <= 0) return;
+            const order = ensureActiveOrder(currentPosTableId);
+            const existing = order.items.find(i => i.id === menuId);
+            if (existing) {
+                if (existing.qty >= dish.stock) return showToast(`Only ${dish.stock} in stock`, 'warning');
+                existing.qty += 1;
+            } else {
+                order.items.push({ id: dish.id, name: dish.name, price: dish.price, qty: 1 });
+            }
+            saveState();
+            renderCart();
+        }
+
+        function updateCartQty(menuId, delta) {
+            const order = ensureActiveOrder(currentPosTableId);
+            const idx = order.items.findIndex(i => i.id === menuId);
+            if (idx === -1) return;
+            const nextQty = order.items[idx].qty + delta;
+            if (nextQty <= 0) order.items.splice(idx, 1);
+            else order.items[idx].qty = nextQty;
+            saveState();
+            renderCart();
+        }
+
+        function updateOrderCustomer() {
+            const order = ensureActiveOrder(currentPosTableId);
+            order.customerName = document.getElementById('cart-cust-name').value.trim();
+            order.customerPhone = document.getElementById('cart-cust-phone').value.trim();
+            saveState();
+        }
+
+        function clearCurrentCart() {
+            delete state.activeOrders[currentPosTableId];
+            saveState();
+            renderCart();
+            showToast('Order cleared');
+        }
+
+        function renderCart() {
+            const tbl = state.tables.find(t => t.id === currentPosTableId);
+            document.getElementById('cart-table-title').textContent = tbl ? tbl.name : currentPosTableId;
+            const order = ensureActiveOrder(currentPosTableId);
+            document.getElementById('cart-cust-name').value = order.customerName || '';
+            document.getElementById('cart-cust-phone').value = order.customerPhone || '';
+            document.getElementById('cart-discount-pct').value = order.discountPct || 0;
+
+            const container = document.getElementById('cart-items-list');
+            container.innerHTML = order.items.length === 0
+                ? `<p class="text-center py-10 text-slate-400 text-xs">Tap dishes on the left to add to bill</p>`
+                : order.items.map(item => `
+                    <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-bold text-xs text-slate-800 truncate">${item.name}</p>
+                            <p class="text-[11px] text-slate-500">${formatINR(item.price)} × ${item.qty}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-300 font-bold text-xs">-</button>
+                            <span class="w-5 text-center text-xs font-bold">${item.qty}</span>
+                            <button onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-forest-700 text-white font-bold text-xs">+</button>
+                        </div>
+                        <div class="w-14 text-right font-extrabold text-xs">${formatINR(item.price * item.qty)}</div>
+                    </div>
+                `).join('');
+            recalculateCart();
+        }
+
+        function recalculateCart() {
+            const order = ensureActiveOrder(currentPosTableId);
+            const discPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('cart-discount-pct').value) || 0));
+            order.discountPct = discPct;
+            const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const discountAmt = subtotal * (discPct / 100);
+            const taxable = Math.max(0, subtotal - discountAmt);
+            const gstRate = parseFloat(state.settings.gstRate) || 0;
+            const gstAmt = taxable * (gstRate / 100);
+            currentGrandTotal = Math.round(taxable + gstAmt);
+
+            document.getElementById('cart-subtotal').textContent = formatINR(subtotal);
+            document.getElementById('cart-discount-amt').textContent = `-${formatINR(discountAmt)}`;
+            document.getElementById('cart-gst-label').textContent = `GST (${gstRate}%)`;
+            document.getElementById('cart-gst-amt').textContent = formatINR(gstAmt);
+            document.getElementById('cart-grand-total').textContent = formatINR(currentGrandTotal);
+            saveState(true);
+        }
+
+        function saveKotToast() {
+            const order = state.activeOrders[currentPosTableId];
+            if (!order || order.items.length === 0) return showToast('Add items first', 'warning');
+            saveState();
+            showToast('KOT saved & synced!');
+        }
+
+        // ==================== 4. PAYMENT & RECEIPT ====================
+        function openPaymentModal() {
+            const order = state.activeOrders[currentPosTableId];
+            if (!order || order.items.length === 0) return showToast('Add items first', 'warning');
+            recalculateCart();
+            const tbl = state.tables.find(t => t.id === currentPosTableId);
+            document.getElementById('pay-modal-table').textContent = tbl ? tbl.name : 'Order';
+            document.getElementById('pay-modal-amount').textContent = formatINR(currentGrandTotal);
+            document.getElementById('cash-tendered-input').value = currentGrandTotal;
+            calculateCashChange();
+            generateUpiQrCode(currentGrandTotal);
+            selectPaymentMode('UPI');
+            document.getElementById('payment-modal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
+
+        function selectPaymentMode(mode) {
+            ['UPI', 'Card', 'Cash'].forEach(m => {
+                const tab = document.getElementById(`tab-pay-${m}`);
+                const panel = document.getElementById(`panel-pay-${m}`);
+                if (m === mode) {
+                    tab.classList.add('bg-white', 'text-forest-700', 'shadow-sm');
+                    tab.classList.remove('text-slate-600');
+                    panel.classList.remove('hidden');
+                } else {
+                    tab.classList.remove('bg-white', 'text-forest-700', 'shadow-sm');
+                    tab.classList.add('text-slate-600');
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        function generateUpiQrCode(amount) {
+            const qrContainer = document.getElementById('upi-qr-container');
+            qrContainer.innerHTML = '';
+            const upiId = state.settings.upiId || 'virasat.ranchi@okicici';
+            const payeeName = encodeURIComponent(state.settings.name || 'VIRASAT');
+            const upiUri = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${amount.toFixed(2)}&cu=INR`;
+            if (typeof QRCode !== 'undefined') {
+                new QRCode(qrContainer, { text: upiUri, width: 170, height: 170, colorDark: '#0d2219', colorLight: '#ffffff' });
+            }
+        }
+
+        function calculateCashChange() {
+            const tendered = parseFloat(document.getElementById('cash-tendered-input').value) || 0;
+            document.getElementById('cash-change-display').textContent = formatINR(Math.max(0, tendered - currentGrandTotal));
+        }
+
+        function completePayment(mode) {
+            const order = state.activeOrders[currentPosTableId];
+            if (!order || order.items.length === 0) return;
+
+            const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const discountAmt = subtotal * ((order.discountPct || 0) / 100);
+            const taxable = Math.max(0, subtotal - discountAmt);
+            const gstRate = parseFloat(state.settings.gstRate) || 0;
+            const gstAmt = taxable * (gstRate / 100);
+            const total = Math.round(taxable + gstAmt);
+
+            order.items.forEach(cartItem => {
+                const dish = state.menu.find(m => m.id === cartItem.id);
+                if (dish) dish.stock = Math.max(0, dish.stock - cartItem.qty);
+            });
+
+            const tbl = state.tables.find(t => t.id === currentPosTableId);
+            const invoiceNo = `INV-${state.invoiceCounter++}`;
+
+            state.completedBills.push({
+                invoiceNo,
+                timestamp: new Date().toISOString(),
+                tableId: currentPosTableId,
+                tableName: tbl ? tbl.name : currentPosTableId,
+                customerName: order.customerName || '',
+                customerPhone: order.customerPhone || '',
+                items: JSON.parse(JSON.stringify(order.items)),
+                subtotal, discountAmt, gstRate, gstAmt, total,
+                paymentMode: mode
+            });
+            delete state.activeOrders[currentPosTableId];
+            saveState();
+
+            closePaymentModal();
+            renderPosView();
+            showToast(`Bill ${invoiceNo} settled!`);
+            viewReceipt(invoiceNo);
+        }
+
+        function viewReceipt(invoiceNo) {
+            const bill = state.completedBills.find(b => b.invoiceNo === invoiceNo);
+            if (!bill) return;
+            document.getElementById('rec-rest-name').textContent = state.settings.name;
+            document.getElementById('rec-rest-address').textContent = state.settings.address;
+            document.getElementById('rec-rest-phone').textContent = `Ph: ${state.settings.phone}`;
+            document.getElementById('rec-rest-gstin').textContent = state.settings.gstin ? `GSTIN: ${state.settings.gstin}` : '';
+            document.getElementById('rec-inv-no').textContent = bill.invoiceNo;
+            document.getElementById('rec-table').textContent = bill.tableName;
+            document.getElementById('rec-date').textContent = new Date(bill.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            document.getElementById('rec-pay-mode').textContent = bill.paymentMode;
+            document.getElementById('rec-items-body').innerHTML = bill.items.map(i => `
+                <tr><td class="py-1 pr-2">${i.name}</td><td class="py-1 text-center">${i.qty}</td><td class="py-1 text-right">${formatINR(i.price * i.qty)}</td></tr>
+            `).join('');
+            document.getElementById('rec-subtotal').textContent = formatINR(bill.subtotal);
+            document.getElementById('rec-gst-label').textContent = `GST (${bill.gstRate}%)`;
+            document.getElementById('rec-gst').textContent = formatINR(bill.gstAmt);
+            document.getElementById('rec-total').textContent = formatINR(bill.total);
+            document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        function closeReceiptModal() { document.getElementById('receipt-modal').classList.add('hidden'); }
+
+        // ==================== 5. MENU MANAGEMENT ====================
+        function renderMenuManagement() {
+            document.getElementById('menu-table-body').innerHTML = state.menu.map(item => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-3 px-4 font-bold text-slate-800">${item.name}</td>
+                    <td class="py-3 px-4 text-xs text-slate-600">${item.category}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.veg ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}">${item.veg ? 'Veg' : 'Non-Veg'}</span></td>
+                    <td class="py-3 px-4 font-bold text-forest-800">${formatINR(item.price)}</td>
+                    <td class="py-3 px-4 font-bold text-xs">${item.stock}</td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="deleteDish('${item.id}')" class="text-red-500 hover:text-red-700"><i class="ph ph-trash text-base"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteDish(menuId) {
+            state.menu = state.menu.filter(m => m.id !== menuId);
+            saveState();
+            renderMenuManagement();
+        }
+
+        function openAddDishModal() { document.getElementById('add-dish-modal').classList.remove('hidden'); }
+        function closeAddDishModal() { document.getElementById('add-dish-modal').classList.add('hidden'); }
+
+        function saveNewDish(e) {
+            e.preventDefault();
+            state.menu.unshift({
+                id: 'm-' + Date.now(),
+                name: document.getElementById('dish-name').value.trim(),
+                category: document.getElementById('dish-category').value,
+                veg: document.getElementById('dish-veg').value === 'true',
+                price: parseFloat(document.getElementById('dish-price').value) || 0,
+                stock: parseInt(document.getElementById('dish-stock').value, 10) || 0
+            });
+            saveState();
+            closeAddDishModal();
+            e.target.reset();
+            renderMenuManagement();
+            showToast('Dish added!');
+        }
+
+        // ==================== 6. PERIOD SUMMARY, PDF & EMAIL REPORT ====================
+        function setSummaryPeriod(period) {
+            currentSummaryPeriod = period;
+            const btnDay = document.getElementById('period-btn-day');
+            const btnMonth = document.getElementById('period-btn-month');
+            if (period === 'day') {
+                btnDay.classList.add('bg-forest-700', 'text-white', 'shadow-xs');
+                btnDay.classList.remove('text-slate-700');
+                btnMonth.classList.remove('bg-forest-700', 'text-white', 'shadow-xs');
+                btnMonth.classList.add('text-slate-700');
+            } else {
+                btnMonth.classList.add('bg-forest-700', 'text-white', 'shadow-xs');
+                btnMonth.classList.remove('text-slate-700');
+                btnDay.classList.remove('bg-forest-700', 'text-white', 'shadow-xs');
+                btnDay.classList.add('text-slate-700');
+            }
+            renderPeriodSummaryView();
+        }
+
+        function getFilteredSummaryBills() {
+            const now = new Date();
+            return state.completedBills.filter(b => {
+                const d = new Date(b.timestamp);
+                if (currentSummaryPeriod === 'day') {
+                    return d.toDateString() === now.toDateString();
+                }
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+        }
+
+        function computePeriodMetrics(bills) {
+            let gross = 0, upi = 0, cash = 0, card = 0, gst = 0;
+            bills.forEach(b => {
+                gross += b.total;
+                gst += b.gstAmt || 0;
+                if (b.paymentMode === 'UPI') upi += b.total;
+                else if (b.paymentMode === 'Cash') cash += b.total;
+                else card += b.total;
+            });
+            return { count: bills.length, gross, upi, cash, card, gst };
+        }
+
+        function renderPeriodSummaryView() {
+            const now = new Date();
+            const bills = getFilteredSummaryBills();
+            const m = computePeriodMetrics(bills);
+
+            document.getElementById('summary-period-badge').textContent =
+                currentSummaryPeriod === 'day' ? 'Whole Day Till Now' : 'Whole Month Till Now';
+            document.getElementById('summary-period-range').textContent =
+                currentSummaryPeriod === 'day'
+                    ? `${now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} (12:00 AM – ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })})`
+                    : `${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} (1st – ${now.getDate()} ${now.toLocaleDateString('en-IN', { month: 'short' })})`;
+
+            document.getElementById('sum-bills-count').textContent = m.count;
+            document.getElementById('sum-gross-rev').textContent = formatINR(m.gross);
+            document.getElementById('sum-upi-rev').textContent = formatINR(m.upi);
+            document.getElementById('sum-cash-rev').textContent = formatINR(m.cash);
+            document.getElementById('sum-gst-rev').textContent = formatINR(m.gst);
+            document.getElementById('summary-target-email').textContent = state.settings.email || 'Not configured (Set in Dashboard or Settings)';
+
+            const tbody = document.getElementById('sales-table-body');
+            const reversed = [...bills].reverse();
+            tbody.innerHTML = reversed.length === 0
+                ? `<tr><td colspan="6" class="py-8 text-center text-slate-400 text-xs">No completed bills in this selected period.</td></tr>`
+                : reversed.map(b => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-3 px-4 font-bold text-slate-900">${b.invoiceNo}</td>
+                        <td class="py-3 px-4 text-xs text-slate-600">${new Date(b.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td class="py-3 px-4 text-xs">${b.tableName}</td>
+                        <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-xs font-bold">${b.paymentMode}</span></td>
+                        <td class="py-3 px-4 font-extrabold text-forest-800">${formatINR(b.total)}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="viewReceipt('${b.invoiceNo}')" class="px-2.5 py-1 rounded-lg bg-forest-50 text-forest-700 text-xs font-bold">Receipt</button>
+                        </td>
+                    </tr>
+                `).join('');
+        }
+
+        function buildSummaryPdfFile() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const now = new Date();
+            const bills = getFilteredSummaryBills();
+            const m = computePeriodMetrics(bills);
+            const periodLabel = currentSummaryPeriod === 'day' ? 'Whole Day Till Now' : 'Whole Month Till Now';
+
+            // Header Banner
+            doc.setFillColor(20, 51, 38);
+            doc.rect(0, 0, 210, 32, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('VIRASAT POS — SALES SUMMARY REPORT', 14, 15);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${state.settings.address} | Period: ${periodLabel} | Generated: ${now.toLocaleString('en-IN')}`, 14, 24);
+
+            // Summary KPI Table
+            doc.setTextColor(20, 20, 20);
+            doc.autoTable({
+                startY: 40,
+                head: [['Total Bills', 'Gross Revenue', 'UPI Total', 'Cash Total', 'Card Total', 'GST Collected']],
+                body: [[
+                    String(m.count),
+                    `Rs. ${m.gross.toFixed(2)}`,
+                    `Rs. ${m.upi.toFixed(2)}`,
+                    `Rs. ${m.cash.toFixed(2)}`,
+                    `Rs. ${m.card.toFixed(2)}`,
+                    `Rs. ${m.gst.toFixed(2)}`
+                ]],
+                theme: 'grid',
+                headStyles: { fillColor: [27, 67, 50] }
+            });
+
+            // Detailed Bills Table
+            const rows = bills.map(b => [
+                b.invoiceNo,
+                new Date(b.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                b.tableName,
+                b.paymentMode,
+                `Rs. ${b.gstAmt.toFixed(2)}`,
+                `Rs. ${b.total.toFixed(2)}`
+            ]);
+
+            doc.autoTable({
+                startY: doc.lastAutoTable.finalY + 10,
+                head: [['Invoice #', 'Date & Time', 'Table', 'Mode', 'GST', 'Total']],
+                body: rows.length ? rows : [['-', 'No invoices in selected period', '-', '-', '-', 'Rs. 0.00']],
+                theme: 'striped',
+                headStyles: { fillColor: [45, 106, 79] }
+            });
+
+            const fileName = `VIRASAT_${currentSummaryPeriod === 'day' ? 'Daily' : 'Monthly'}_Summary_${now.toISOString().slice(0, 10)}.pdf`;
+            doc.save(fileName);
+            return { fileName, m, periodLabel };
+        }
+
+        function downloadSummaryPdf() {
+            const { fileName } = buildSummaryPdfFile();
+            showToast(`Downloaded ${fileName}`);
+        }
+
+        function sendSummaryPdfToEmail() {
+            const email = (state.settings.email || '').trim();
+            if (!email) {
+                showToast('Please enter your dedicated email account first!', 'warning');
+                switchTab('settings');
+                return;
+            }
+            const { fileName, m, periodLabel } = buildSummaryPdfFile();
+            const subject = encodeURIComponent(`VIRASAT POS Report (${periodLabel}) — ${new Date().toLocaleDateString('en-IN')}`);
+            const body = encodeURIComponent(
+                `Hello,\n\nPlease find attached the VIRASAT POS PDF Summary Report (${fileName}).\n\n` +
+                `Period: ${periodLabel}\n` +
+                `Total Bills: ${m.count}\n` +
+                `Gross Revenue: Rs. ${m.gross.toFixed(2)}\n` +
+                `UPI: Rs. ${m.upi.toFixed(2)} | Cash: Rs. ${m.cash.toFixed(2)} | Card: Rs. ${m.card.toFixed(2)}\n` +
+                `GST Collected: Rs. ${m.gst.toFixed(2)}\n\n` +
+                `Regards,\nVIRASAT POS`
+            );
+            showToast(`PDF saved! Opening email to ${email}...`);
+            setTimeout(() => {
+                window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+            }, 600);
+        }
+
+        // ==================== 7. SETTINGS ====================
+        function loadSettingsForm() {
+            document.getElementById('set-name').value = state.settings.name || '';
+            document.getElementById('set-email').value = state.settings.email || '';
+            document.getElementById('set-address').value = state.settings.address || '';
+            document.getElementById('set-phone').value = state.settings.phone || '';
+            document.getElementById('set-gstin').value = state.settings.gstin || '';
+            document.getElementById('set-upi').value = state.settings.upiId || '';
+            document.getElementById('set-gst-rate').value = state.settings.gstRate ?? 5;
+            document.getElementById('set-sync-url').value = state.settings.syncUrl || '';
+        }
+
+        function saveSettings(e) {
+            e.preventDefault();
+            state.settings = {
+                name: document.getElementById('set-name').value.trim(),
+                email: document.getElementById('set-email').value.trim(),
+                address: document.getElementById('set-address').value.trim(),
+                phone: document.getElementById('set-phone').value.trim(),
+                gstin: document.getElementById('set-gstin').value.trim(),
+                upiId: document.getElementById('set-upi').value.trim(),
+                gstRate: parseFloat(document.getElementById('set-gst-rate').value) || 0,
+                syncUrl: document.getElementById('set-sync-url').value.trim()
+            };
+            saveState();
+            showToast('Settings saved & synced!');
+        }
+
+        function resetDemoData() {
+            state.menu = JSON.parse(JSON.stringify(DEFAULT_MENU));
+            state.tables = JSON.parse(JSON.stringify(DEFAULT_TABLES));
+            saveState();
+            showToast('Default menu restored!');
+        }
+
+        // ==================== BOOT ====================
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedSession = localStorage.getItem(ACTIVE_SESSION_KEY);
+            if (savedSession) {
+                try {
+                    currentUser = JSON.parse(savedSession);
+                    loadAccountState();
+                    enterAppShell();
+                    await pullFromCloudIfConfigured(true);
+                } catch {
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
