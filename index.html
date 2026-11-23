@@ -21,7 +21,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- jsPDF & AutoTable for PDF Summary Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
@@ -75,7 +74,7 @@
     <!-- Toast Notification Banner -->
     <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- ==================== 0. OFFLINE LOGIN / SIGNUP GATE ==================== -->
+    <!-- ==================== 0. STRICT MOBILE LOGIN / SIGNUP GATE ==================== -->
     <div id="auth-screen" class="fixed inset-0 z-50 bg-forest-900 flex items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-gold-500/30">
             <div class="bg-forest-800 text-white px-6 py-6 text-center border-b border-forest-700">
@@ -83,29 +82,35 @@
                     वि
                 </div>
                 <h1 class="font-extrabold text-xl tracking-wide">VIRASAT <span class="text-gold-400">विरासत</span></h1>
-                <p class="text-xs text-forest-200 mt-1">Offline-Ready Restaurant POS & Cloud Sync</p>
+                <p class="text-xs text-forest-200 mt-1">Registered Mobile POS Access</p>
             </div>
 
-            <!-- Auth Mode Tabs -->
             <div class="p-6 space-y-4">
+                <!-- Inline Error Banner -->
+                <div id="auth-error-box" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+                    <i class="ph ph-warning-circle text-base shrink-0"></i>
+                    <span id="auth-error-text">Incorrect password</span>
+                </div>
+
+                <!-- Auth Mode Tabs -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl">
                     <button type="button" id="auth-tab-login" onclick="switchAuthTab('login')" class="py-2 rounded-lg text-xs font-bold transition bg-white text-forest-800 shadow-xs">
                         Login
                     </button>
                     <button type="button" id="auth-tab-signup" onclick="switchAuthTab('signup')" class="py-2 rounded-lg text-xs font-bold transition text-slate-500">
-                        Create Account
+                        Register First
                     </button>
                 </div>
 
                 <!-- Login Form -->
                 <form id="login-form" onsubmit="handleLogin(event)" class="space-y-3.5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Username</label>
-                        <input type="text" id="login-username" required autocomplete="username" placeholder="Enter your username" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Registered 10-Digit Mobile Number</label>
+                        <input type="tel" id="login-username" required inputmode="numeric" maxlength="10" pattern="[0-9]{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)" placeholder="Enter 10-digit mobile number" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold tracking-wider focus:outline-none focus:border-forest-700">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
-                        <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        <input type="password" id="login-password" required autocomplete="current-password" placeholder="Enter your password" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
                     </div>
                     <button type="submit" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
                         <i class="ph ph-lock-key-open text-lg text-gold-400"></i> Sign In to POS
@@ -115,24 +120,24 @@
                 <!-- Signup Form -->
                 <form id="signup-form" onsubmit="handleSignup(event)" class="hidden space-y-3.5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Choose Username</label>
-                        <input type="text" id="signup-username" required placeholder="e.g. aditya_virasat" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">10-Digit Mobile Number (Username)</label>
+                        <input type="tel" id="signup-username" required inputmode="numeric" maxlength="10" pattern="[0-9]{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)" placeholder="e.g. 9876543210" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold tracking-wider focus:outline-none focus:border-forest-700">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Dedicated Report Email</label>
                         <input type="email" id="signup-email" required placeholder="reports@virasat.in" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Create Password</label>
                         <input type="password" id="signup-password" required minlength="4" placeholder="Create password (min 4 chars)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-forest-700">
                     </div>
                     <button type="submit" class="w-full py-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
-                        <i class="ph ph-user-plus text-lg text-gold-400"></i> Register & Launch POS
+                        <i class="ph ph-user-plus text-lg text-gold-400"></i> Register Mobile & Launch
                     </button>
                 </form>
 
                 <p class="text-[11px] text-center text-slate-400">
-                    Works 100% offline. Connect a free Cloud Sync URL inside Settings to sync across multiple devices.
+                    Only pre-registered 10-digit mobile numbers can sign in. Works 100% offline.
                 </p>
             </div>
         </div>
@@ -198,7 +203,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h2 class="text-xl font-bold text-slate-900">Dashboard Overview</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Live summary for <span id="dash-username-badge" class="font-bold text-forest-700">User</span></p>
+                        <p class="text-xs text-slate-500 mt-0.5">Live summary for Mobile: <span id="dash-username-badge" class="font-bold text-forest-700"></span></p>
                     </div>
                     <div class="flex items-center gap-2.5">
                         <button onclick="switchTab('reports')" class="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-forest-800 hover:bg-slate-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
@@ -437,7 +442,6 @@
                         <h2 class="text-xl font-bold text-slate-900">Period Summary & PDF Email Report</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Select a period below to summarize sales, download PDF, and send to your dedicated email.</p>
                     </div>
-                    <!-- Period Toggle Pills -->
                     <div class="inline-flex bg-slate-200/80 p-1 rounded-xl self-start">
                         <button type="button" id="period-btn-day" onclick="setSummaryPeriod('day')" class="px-4 py-2 rounded-lg text-xs font-bold transition bg-forest-700 text-white shadow-xs">
                             Whole Day Till Now
@@ -448,7 +452,6 @@
                     </div>
                 </div>
 
-                <!-- Summary KPI Snapshot Box -->
                 <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                         <div>
@@ -489,11 +492,10 @@
                     </div>
 
                     <p class="text-[11px] text-slate-500">
-                        Target Email: <span id="summary-target-email" class="font-bold text-forest-800">Not set</span> (Downloads the `.pdf` report and opens your email draft addressed to your dedicated email).
+                        Target Email: <span id="summary-target-email" class="font-bold text-forest-800">Not set</span>
                     </p>
                 </div>
 
-                <!-- Filtered Bills Ledger -->
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -556,14 +558,13 @@
                         </div>
                     </div>
 
-                    <!-- Cross-Device Cloud Sync Endpoint -->
                     <div class="pt-3 border-t border-slate-200 space-y-2">
                         <label class="block text-xs font-bold text-forest-800 flex items-center gap-1.5">
                             <i class="ph ph-cloud-arrow-up text-base"></i> Multi-Device Cloud Sync URL (Optional)
                         </label>
-                        <input type="url" id="set-sync-url" placeholder="https://your-project-default-rtdb.firebaseio.com" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-forest-700">
+                        <input type="url" id="set-sync-url" placeholder="https://your-project-default-rtdb.firebasedatabase.app" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-forest-700">
                         <p class="text-[11px] text-slate-500">
-                            Paste a free Firebase Realtime Database URL so logging into the same username/password on any device automatically mirrors your entire POS database in real time.
+                            Paste your Firebase Realtime Database URL so logging into the same 10-digit mobile number & password on any device mirrors your entire POS database.
                         </p>
                     </div>
 
@@ -752,8 +753,8 @@
 
     <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
     <script>
-        const USERS_REGISTRY_KEY = 'virasat_pro_users_v1';
-        const ACTIVE_SESSION_KEY = 'virasat_pro_session_v1';
+        const USERS_REGISTRY_KEY = 'virasat_pro_users_v2';
+        const ACTIVE_SESSION_KEY = 'virasat_pro_session_v2';
         const DEFAULT_CLOUD_SYNC_URL = '';
 
         const DEFAULT_TABLES = [
@@ -795,7 +796,7 @@
             syncUrl: DEFAULT_CLOUD_SYNC_URL
         };
 
-        let currentUser = null; // { username, passHash }
+        let currentUser = null; // { mobile, passHash }
         let state = {
             tables: DEFAULT_TABLES,
             menu: DEFAULT_MENU,
@@ -809,16 +810,32 @@
         let currentPosTableId = 'cabin-1';
         let currentCategoryFilter = 'All';
         let currentGrandTotal = 0;
-        let currentSummaryPeriod = 'day'; // 'day' | 'month'
+        let currentSummaryPeriod = 'day';
 
-        // ==================== OFFLINE PASSWORD HASHING & AUTH ====================
+        // ==================== STRICT OFFLINE MOBILE AUTHENTICATION ====================
+        function isValidMobile(val) {
+            return /^\d{10}$/.test(String(val || '').trim());
+        }
+
+        function showAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            text.textContent = msg;
+            box.classList.remove('hidden');
+        }
+
+        function hideAuthError() {
+            const box = document.getElementById('auth-error-box');
+            if (box) box.classList.add('hidden');
+        }
+
         async function hashString(text) {
             if (window.crypto && window.crypto.subtle) {
                 const msgUint8 = new TextEncoder().encode(text);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
                 return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
             }
-            // Deterministic fallback hash if subtle crypto unavailable
             let h = 2166136261;
             for (let i = 0; i < text.length; i++) {
                 h ^= text.charCodeAt(i);
@@ -828,6 +845,7 @@
         }
 
         function switchAuthTab(tab) {
+            hideAuthError();
             const loginForm = document.getElementById('login-form');
             const signupForm = document.getElementById('signup-form');
             const tabLogin = document.getElementById('auth-tab-login');
@@ -861,82 +879,119 @@
             localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(reg));
         }
 
-        function getAccountStorageKey(username) {
-            return `virasat_pro_data_${username.toLowerCase().trim()}`;
+        function getAccountStorageKey(mobile) {
+            return `virasat_pro_data_${String(mobile).trim()}`;
         }
 
         async function handleSignup(e) {
             e.preventDefault();
-            const username = document.getElementById('signup-username').value.trim().toLowerCase();
+            hideAuthError();
+            const mobile = document.getElementById('signup-username').value.trim();
             const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
 
-            if (!username || !password) return;
-
-            const registry = getUsersRegistry();
-            if (registry[username]) {
-                showToast('Username already exists on this device. Please Login.', 'warning');
-                switchAuthTab('login');
-                document.getElementById('login-username').value = username;
+            if (!isValidMobile(mobile)) {
+                showAuthError('Username must be a valid 10-digit mobile number only.');
+                return;
+            }
+            if (!password || password.length < 4) {
+                showAuthError('Password must be at least 4 characters.');
                 return;
             }
 
-            const passHash = await hashString(`${username}:${password}`);
-            registry[username] = { username, passHash, email, createdAt: Date.now() };
+            const registry = getUsersRegistry();
+            if (registry[mobile]) {
+                showAuthError('This 10-digit mobile number is already registered. Please Login.');
+                return;
+            }
+
+            const passHash = await hashString(`${mobile}:${password}`);
+            registry[mobile] = { mobile, passHash, email, createdAt: Date.now() };
             saveUsersRegistry(registry);
 
-            // Initialize fresh state for this account
             state = {
                 tables: JSON.parse(JSON.stringify(DEFAULT_TABLES)),
                 menu: JSON.parse(JSON.stringify(DEFAULT_MENU)),
                 activeOrders: {},
                 completedBills: [],
                 invoiceCounter: 1001,
-                settings: { ...DEFAULT_SETTINGS, email },
+                settings: { ...DEFAULT_SETTINGS, email, phone: mobile },
                 updatedAt: Date.now()
             };
 
-            currentUser = { username, passHash };
+            currentUser = { mobile, passHash };
             localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(currentUser));
-            localStorage.setItem(getAccountStorageKey(username), JSON.stringify(state));
+            localStorage.setItem(getAccountStorageKey(mobile), JSON.stringify(state));
 
             enterAppShell();
-            showToast(`Account @${username} created!`);
+            showToast(`Registered ${mobile} successfully!`);
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
+            hideAuthError();
+            const mobile = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
-            if (!username || !password) return;
 
-            const passHash = await hashString(`${username}:${password}`);
-            const registry = getUsersRegistry();
-            const savedUser = registry[username];
-
-            if (savedUser && savedUser.passHash !== passHash) {
-                showToast('Incorrect password for this account.', 'warning');
+            if (!isValidMobile(mobile)) {
+                showAuthError('Please enter a valid 10-digit mobile number.');
+                return;
+            }
+            if (!password) {
+                showAuthError('Incorrect password');
                 return;
             }
 
-            // If logging in on a brand-new device, allow creating local session & pulling from cloud if configured
-            if (!savedUser) {
-                registry[username] = { username, passHash, email: '', createdAt: Date.now() };
-                saveUsersRegistry(registry);
+            const passHash = await hashString(`${mobile}:${password}`);
+            const registry = getUsersRegistry();
+            let savedUser = registry[mobile];
+
+            // If not registered locally on this device, check cloud vault ONLY if DEFAULT_CLOUD_SYNC_URL is configured
+            if (!savedUser && DEFAULT_CLOUD_SYNC_URL && navigator.onLine) {
+                try {
+                    const base = DEFAULT_CLOUD_SYNC_URL.trim().replace(/\/+$/, '');
+                    const vaultKey = `${mobile}_${passHash.slice(0, 16)}`;
+                    const res = await fetch(`${base}/virasat_vaults/${vaultKey}.json`);
+                    if (res.ok) {
+                        const remote = await res.json();
+                        if (remote && remote.updatedAt) {
+                            savedUser = { mobile, passHash, email: remote.settings?.email || '', createdAt: Date.now() };
+                            registry[mobile] = savedUser;
+                            saveUsersRegistry(registry);
+                            localStorage.setItem(getAccountStorageKey(mobile), JSON.stringify(remote));
+                        }
+                    }
+                } catch {
+                    // Ignore network error and fall through to strict unregistered check
+                }
             }
 
-            currentUser = { username, passHash };
+            // Strict Gate 1: Must be registered first
+            if (!savedUser) {
+                showAuthError('Mobile number not registered. Please tap "Register First" to create an account.');
+                return;
+            }
+
+            // Strict Gate 2: Password hash must match this exact 10-digit mobile number
+            if (savedUser.passHash !== passHash) {
+                showAuthError('Incorrect password');
+                return;
+            }
+
+            currentUser = { mobile, passHash };
             localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(currentUser));
 
             loadAccountState();
             enterAppShell();
             await pullFromCloudIfConfigured(true);
-            showToast(`Welcome back, @${username}!`);
+            showToast(`Logged in as ${mobile}`);
         }
 
         function logoutUser() {
             currentUser = null;
             localStorage.removeItem(ACTIVE_SESSION_KEY);
+            hideAuthError();
+            document.getElementById('login-password').value = '';
             document.getElementById('app-shell').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('hidden');
             showToast('Logged out securely');
@@ -945,8 +1000,8 @@
         function enterAppShell() {
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-shell').classList.remove('hidden');
-            document.getElementById('header-user-label').textContent = `@${currentUser.username} • ${state.settings.address}`;
-            document.getElementById('dash-username-badge').textContent = `@${currentUser.username}`;
+            document.getElementById('header-user-label').textContent = `${currentUser.mobile} • ${state.settings.address}`;
+            document.getElementById('dash-username-badge').textContent = currentUser.mobile;
             switchTab('dashboard');
         }
 
@@ -954,7 +1009,7 @@
         function loadAccountState() {
             if (!currentUser) return;
             try {
-                const raw = localStorage.getItem(getAccountStorageKey(currentUser.username));
+                const raw = localStorage.getItem(getAccountStorageKey(currentUser.mobile));
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     state = {
@@ -969,7 +1024,7 @@
                         activeOrders: {},
                         completedBills: [],
                         invoiceCounter: 1001,
-                        settings: { ...DEFAULT_SETTINGS },
+                        settings: { ...DEFAULT_SETTINGS, phone: currentUser.mobile },
                         updatedAt: Date.now()
                     };
                 }
@@ -981,7 +1036,7 @@
         function saveState(skipCloud = false) {
             if (!currentUser) return;
             state.updatedAt = Date.now();
-            localStorage.setItem(getAccountStorageKey(currentUser.username), JSON.stringify(state));
+            localStorage.setItem(getAccountStorageKey(currentUser.mobile), JSON.stringify(state));
             if (!skipCloud) {
                 pushToCloudIfConfigured();
             }
@@ -990,8 +1045,7 @@
         function getCloudEndpoint() {
             const base = (state.settings.syncUrl || '').trim().replace(/\/+$/, '');
             if (!base || !currentUser) return null;
-            // Keyed by username + password hash so same credentials share exact data across devices
-            const vaultKey = `${currentUser.username}_${currentUser.passHash.slice(0, 16)}`;
+            const vaultKey = `${currentUser.mobile}_${currentUser.passHash.slice(0, 16)}`;
             return `${base}/virasat_vaults/${vaultKey}.json`;
         }
 
@@ -1029,7 +1083,7 @@
                         ...remote,
                         settings: { ...DEFAULT_SETTINGS, ...(remote.settings || {}) }
                     };
-                    localStorage.setItem(getAccountStorageKey(currentUser.username), JSON.stringify(state));
+                    localStorage.setItem(getAccountStorageKey(currentUser.mobile), JSON.stringify(state));
                     renderDashboard();
                     if (!silent) showToast('Synced latest data from cloud!');
                 } else if (!remote && state.completedBills.length > 0) {
@@ -1621,7 +1675,6 @@
             const m = computePeriodMetrics(bills);
             const periodLabel = currentSummaryPeriod === 'day' ? 'Whole Day Till Now' : 'Whole Month Till Now';
 
-            // Header Banner
             doc.setFillColor(20, 51, 38);
             doc.rect(0, 0, 210, 32, 'F');
             doc.setTextColor(255, 255, 255);
@@ -1632,7 +1685,6 @@
             doc.setFont('helvetica', 'normal');
             doc.text(`${state.settings.address} | Period: ${periodLabel} | Generated: ${now.toLocaleString('en-IN')}`, 14, 24);
 
-            // Summary KPI Table
             doc.setTextColor(20, 20, 20);
             doc.autoTable({
                 startY: 40,
@@ -1649,7 +1701,6 @@
                 headStyles: { fillColor: [27, 67, 50] }
             });
 
-            // Detailed Bills Table
             const rows = bills.map(b => [
                 b.invoiceNo,
                 new Date(b.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
@@ -1741,10 +1792,16 @@
             const savedSession = localStorage.getItem(ACTIVE_SESSION_KEY);
             if (savedSession) {
                 try {
-                    currentUser = JSON.parse(savedSession);
-                    loadAccountState();
-                    enterAppShell();
-                    await pullFromCloudIfConfigured(true);
+                    const parsed = JSON.parse(savedSession);
+                    const registry = getUsersRegistry();
+                    if (parsed && isValidMobile(parsed.mobile) && registry[parsed.mobile] && registry[parsed.mobile].passHash === parsed.passHash) {
+                        currentUser = parsed;
+                        loadAccountState();
+                        enterAppShell();
+                        await pullFromCloudIfConfigured(true);
+                    } else {
+                        localStorage.removeItem(ACTIVE_SESSION_KEY);
+                    }
                 } catch {
                     localStorage.removeItem(ACTIVE_SESSION_KEY);
                 }
